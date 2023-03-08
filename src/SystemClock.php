@@ -11,7 +11,7 @@ use function date_default_timezone_get;
 
 final class SystemClock implements ClockInterface
 {
-    private readonly DateTimeZone $timeZone;
+    private DateTimeZone $timeZone;
 
     /**
      * @param DateTimeZone|string $timeZone
