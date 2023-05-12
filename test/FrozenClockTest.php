@@ -2,6 +2,7 @@
 
 namespace Clock;
 
+use DateInterval;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -60,6 +61,17 @@ class FrozenClockTest extends TestCase
 
         self::assertInstanceOf(ClockInterface::class, $clock);
         self::assertSame($object, $clock->now());
+    }
+
+    /**
+     * @throws ClockExceptionInterface
+     */
+    public function testWithZero(): void
+    {
+        $zero = new FrozenClock(0);
+        $one = $zero->now()->add(new DateInterval('PT1S'));
+        self::assertEquals(0, $zero->now()->getTimestamp());
+        self::assertEquals(1, $one->getTimestamp());
     }
 
     /**

@@ -14,11 +14,11 @@ $ composer require vulpes/clock
 
 
 ### Clock
-The clock works from a dateTime string (default: `now`), so it can take any value that `strtotime()` can handle, 
+The clock works from a dateTime string (default: `now`), so it can take any value that `strtotime()` can handle,   
 and that `DateTimeImmutable` in its constructor can handle when calling `Clock::now()` function.
 
 ### FrozenClock
-The FrozenClock works from a `DateTimeImmutable` object, so its value never changes, 
+The FrozenClock works from a `DateTimeImmutable` object, so its value never changes,  
 it will always return the same value within a timezone when calling the `FrozenClock::now()` function.
 
 ### Usage
@@ -29,16 +29,21 @@ use Clock\ClockExceptionInterface;
 use Clock\Clock;
 use Clock\FrozenClock;
 
-// with default parameters
+// with default parameters, the `Clock::dateTime` parameter will
+// always be interpreted as a string
 $clock = new Clock(
-    /* string */              dateTime: ClockInterface::NOW,
-    /* DateTimeZone|string */ timeZone: ClockInterface::UTC
+    /* DateTimeInterface|string|int */ dateTime: ClockInterface::NOW,
+    /* DateTimeZone|string */          timeZone: ClockInterface::UTC
 );
 
-// with default parameters
+// with default parameters, the `FrozenClock::dateTime` parameter will
+// always be interpreted as a DateTimeImmutable object
 $clock = new FrozenClock(
     /* DateTimeInterface|string|int|null */ dateTime: 
-    new DateTimeImmutable(ClockInterface::NOW, new DateTimeZone(ClockInterface::UTC))
+    new DateTimeImmutable(
+        datetime: ClockInterface::NOW, 
+        timezone: new DateTimeZone(ClockInterface::UTC)
+    )
 );
 
 // Clock and FrozenClock are identical in behavior below in this section
@@ -58,11 +63,20 @@ $withCustomTZ = $clock->withDateTimeZone('Europe/Vatican');
 $withCustomTZ = $clock->withDateTimeZone(new DateTimeZone('Europe/Vatican'));
 $withCustomTZ->now()->getTimezone()->getName() // Europe/Vatican
 
-$with = $clock->with(new DateTime("1989-01-13"));          // $with->now()->format("Y-m-d") > "1989-01-13"
-$with = $clock->with(new DateTimeImmutable("2011-01-13")); // $with->now()->format("Y-m-d") > "2011-01-13"
-$with = $clock->with('2022-02-02'); // $with->now()->format("Y-m-d") >  "2022-02-02"
-$with = $clock->with(1643756400);   // $with->now()->format("Y-m-d") > ~"2022-02-02"
-$with = $clock->with(1111111111);   // $with->now()->getTimestamp() > 1111111111
+$with = $clock->with(new DateTime("1989-01-13"));          
+// $with->now()->format("Y-m-d") > "1989-01-13"
+
+$with = $clock->with(new DateTimeImmutable("2011-01-13")); 
+// $with->now()->format("Y-m-d") > "2011-01-13"
+
+$with = $clock->with('2022-02-02'); 
+// $with->now()->format("Y-m-d") >  "2022-02-02"
+
+$with = $clock->with(1643756400);   
+// $with->now()->format("Y-m-d") > ~"2022-02-02"
+
+$with = $clock->with(1111111111);   
+// $with->now()->getTimestamp() > 1111111111
 
 $withCustomTZ = $clock->withDateTimeZone(new DateTimeZone('Europe/Vatican'));
 $withCustomTZ->now()->getTimezone()->getName() // Europe/Vatican
@@ -103,8 +117,10 @@ $frozenClock->now()->format('i:s') // 10:02
 $frozenSystemClock = $systemClock->with($frozenClock)
 $frozenSystemClockc // 10:02
 
-// The clock works from a dateTime string (default: `now`), so it can take any value that `strtotime()` can handle, 
-// and that `DateTimeImmutable` in its constructor can handle when calling `Clock::now()` function.
+// The clock works from a dateTime string (default: `now`), so it
+// can take any value that `strtotime()` can handle, and that
+// `DateTimeImmutable` in its constructor can handle when calling
+// `Clock::now()` function.
 
 $alwaysTomorrow = $systemClock->with('+1 day'); // on 2021-01-01
 $alwaysTomorrow->now()->format('Y-m-d') // 2021-01-02

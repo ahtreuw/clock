@@ -18,12 +18,12 @@ class Clock implements ClockInterface
      * @throws ClockExceptionInterface
      */
     public function __construct(
-        string              $dateTime = ClockInterface::NOW,
-        DateTimeZone|string $timeZone = ClockInterface::UTC
+        DateTimeInterface|string|int $dateTime = ClockInterface::NOW,
+        DateTimeZone|string          $timeZone = ClockInterface::UTC
     )
     {
         try {
-            $this->dateTime = $dateTime;
+            $this->dateTime = $this->createDateTime($dateTime);
             $this->dateTimeZone = $timeZone instanceof DateTimeZone ? $timeZone : new DateTimeZone($timeZone);
         } catch (Exception $exception) {
             $message = 'Unknown or bad timezone (unknown datetime zone: "%s")';
