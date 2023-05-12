@@ -2,53 +2,121 @@
 
 namespace Clock;
 
-use Psr\Clock\ClockInterface;
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use Exception;
 
 use function date_default_timezone_get;
 
-final class Clock implements ClockInterface
+class Clock implements ClockInterface
 {
-    public const TIMEZONE_UTC = 'UTC';
-
+    private string $dateTime;
     private DateTimeZone $dateTimeZone;
 
     /**
-     * @param DateTimeZone|string $timeZone
+     * @throws ClockExceptionInterface
      */
-    public function __construct(DateTimeZone|string $timeZone = self::TIMEZONE_UTC)
+    public function __construct(
+        string              $dateTime = ClockInterface::NOW,
+        DateTimeZone|string $timeZone = ClockInterface::UTC
+    )
     {
-        $this->dateTimeZone = $timeZone instanceof DateTimeZone ? $timeZone : new DateTimeZone($timeZone);
+        try {
+            $this->dateTime = $dateTime;
+            $this->dateTimeZone = $timeZone instanceof DateTimeZone ? $timeZone : new DateTimeZone($timeZone);
+        } catch (Exception $exception) {
+            $message = 'Unknown or bad timezone (unknown datetime zone: "%s")';
+            throw new ClockException(sprintf($message, $timeZone), 0, $exception);
+        }
     }
 
-    /**
-     * @throws Exception
-     */
     public function now(): DateTimeImmutable
     {
-        return new DateTimeImmutable('now', $this->dateTimeZone);
+        try {
+            return new DateTimeImmutable($this->dateTime, $this->dateTimeZone);
+        } catch (Exception $exception) {
+            throw new ClockException($exception);
+        }
     }
 
-    /**
-     * @throws Exception
-     */
-    public static function create(DateTimeZone|string $timeZone = self::TIMEZONE_UTC): ClockInterface
+    public function with(DateTimeInterface|string|int $dateTime): ClockInterface
     {
-        return new self($timeZone);
+        $timeZone = $this->createTimeZone($dateTime);
+        $dateTime = $this->createDateTime($dateTime);
+
+        if ($this->dateTime === $dateTime && $this->dateTimeZone->getName() === $timeZone->getName()) {
+            return $this;
+        }
+
+        $new = clone $this;
+        $new->dateTime = $dateTime;
+        $new->dateTimeZone = $timeZone;
+        return $new;
     }
 
-    public static function fromUTC(): ClockInterface
+
+    public function withDateTimeZone(DateTimeZone|string $timeZone): ClockInterface
     {
-        return new self;
+        if ($timeZone instanceof DateTimeZone) {
+
+            if ($timeZone->getName() === $this->dateTimeZone->getName()) {
+                return $this;
+            }
+
+            $new = clone $this;
+            $new->dateTimeZone = $timeZone;
+            return $new;
+        }
+
+        if ($timeZone === $this->dateTimeZone->getName()) {
+            return $this;
+        }
+
+        try {
+            $new = clone $this;
+            $new->dateTimeZone = new DateTimeZone($timeZone);
+            return $new;
+        } catch (Exception $exception) {
+            $message = 'Unknown or bad timezone (unknown datetime zone: "%s")';
+            throw new ClockException(sprintf($message, $timeZone), 0, $exception);
+        }
     }
 
-    /**
-     * @throws Exception
-     */
-    public static function fromSystemTimezone(): ClockInterface
+    public function withUTC(): ClockInterface
     {
-        return new self(date_default_timezone_get());
+        return $this->withDateTimeZone(ClockInterface::UTC);
+    }
+
+    public function withSystemTimezone(): ClockInterface
+    {
+        return $this->withDateTimeZone(date_default_timezone_get());
+    }
+
+    public static function create(
+        string              $dateTime = ClockInterface::NOW,
+        DateTimeZone|string $timeZone = ClockInterface::UTC
+    ): ClockInterface
+    {
+        return new self(dateTime: $dateTime, timeZone: $timeZone);
+    }
+
+    private function createDateTime(DateTimeInterface|int|string $dateTime): string
+    {
+        if (is_string($dateTime)) {
+            return $dateTime;
+        }
+        if (is_int($dateTime)) {
+            return date(DateTimeInterface::RFC3339, $dateTime);
+        }
+        return $dateTime->format(DateTimeInterface::RFC3339_EXTENDED);
+    }
+
+    private function createTimeZone(DateTimeInterface|string|int $dateTime): DateTimeZone
+    {
+        if ($dateTime instanceof DateTimeInterface) {
+            return $dateTime->getTimezone() ?: $this->dateTimeZone;
+        }
+        return $this->dateTimeZone;
     }
 }

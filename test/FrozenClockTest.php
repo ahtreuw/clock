@@ -2,10 +2,11 @@
 
 namespace Clock;
 
+use DateTime;
 use DateTimeImmutable;
+use DateTimeZone;
 use Exception;
 use PHPUnit\Framework\TestCase;
-use Psr\Clock\ClockInterface;
 
 class FrozenClockTest extends TestCase
 {
@@ -14,9 +15,9 @@ class FrozenClockTest extends TestCase
      */
     public function testInstanceOfClockInterface(): void
     {
-        $clock = new FrozenClock(new DateTimeImmutable);
-
+        $clock = new FrozenClock;
         self::assertInstanceOf(ClockInterface::class, $clock);
+        self::assertInstanceOf(\Psr\Clock\ClockInterface::class, $clock);
     }
 
     /**
@@ -26,7 +27,6 @@ class FrozenClockTest extends TestCase
     {
         $object = new DateTimeImmutable;
         $clock = new FrozenClock($object);
-
         self::assertSame($object, $clock->now());
     }
 
@@ -35,14 +35,19 @@ class FrozenClockTest extends TestCase
      */
     public function testSetToChanges(): void
     {
-        $objectA = new DateTimeImmutable;
-        $objectB = new DateTimeImmutable;
+        $objectA = new DateTimeImmutable('2022-01-01');
+        $objectB = new DateTimeImmutable('2022-02-02');
 
-        $clock = new FrozenClock($objectA);
-        $clock->set($objectB);
+        $clockA = new FrozenClock($objectA);
+        $clockB = $clockA->with($objectB);
 
-        self::assertSame($objectB, $clock->now());
-        self::assertNotSame($objectA, $clock->now());
+        self::assertSame($objectA, $clockA->now());
+        self::assertSame($objectB, $clockB->now());
+
+        self::assertNotSame($clockA, $clockB);
+
+        self::assertSame($clockA, $clockA->with($objectA));
+        self::assertSame($clockB, $clockB->with($objectB));
     }
 
     /**
@@ -60,22 +65,98 @@ class FrozenClockTest extends TestCase
     /**
      * @throws Exception
      */
-    public function testFromUTC(): void
+    public function testWithDateTime(): void
     {
-        $clock = FrozenClock::fromUTC();
+        $clock = new FrozenClock;
 
-        self::assertInstanceOf(ClockInterface::class, $clock);
-        self::assertSame('UTC', $clock->now()->getTimezone()->getName());
+        $wDateTime = $clock->with(new DateTime($date = '2022-01-01'));
+
+        self::assertEquals($wDateTime->now()->format('Y-m-d'), $date);
+        self::assertNotEquals($clock->now()->getTimestamp(), $wDateTime->now()->getTimestamp());
+        self::assertNotSame($clock, $wDateTime);
     }
 
     /**
      * @throws Exception
      */
-    public function testFromSystemTimezone(): void
+    public function testWithInt(): void
     {
-        $clock = FrozenClock::fromSystemTimezone();
+        $clock = new FrozenClock;
 
-        self::assertInstanceOf(ClockInterface::class, $clock);
-        self::assertSame(date_default_timezone_get(), $clock->now()->getTimezone()->getName());
+        $date = date('Y-m-d', $timestamp = strtotime('-1 weeks'));
+
+        $wDateTime = $clock->with($timestamp);
+
+        self::assertEquals($date, $wDateTime->now()->format('Y-m-d'));
+        self::assertEquals($timestamp, $wDateTime->now()->getTimestamp());
+
+        self::assertNotEquals($clock->now()->getTimestamp(), $wDateTime->now()->getTimestamp());
+        self::assertNotSame($clock, $wDateTime);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function testWithDateTimeZone(): void
+    {
+        $clock = new FrozenClock;
+
+        self::assertNotEquals('Europe/Budapest', $clock->now()->getTimezone()->getName());
+
+        $clockWithDtz = $clock->withDateTimeZone(new DateTimeZone('Europe/Budapest'));
+        self::assertEquals('Europe/Budapest', $clockWithDtz->now()->getTimezone()->getName());
+
+        self::assertNotSame($clock, $clockWithDtz);
+        self::assertSame($clockWithDtz, $clockWithDtz->withDateTimeZone(new DateTimeZone('Europe/Budapest')));
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function testWithUTC(): void
+    {
+        $clock = new FrozenClock(new DateTimeImmutable('now', new DateTimeZone('Europe/Vatican')));
+
+        self::assertNotEquals(ClockInterface::UTC, $clock->now()->getTimezone()->getName());
+
+        $clockWithUTC = $clock->withUTC();
+        self::assertEquals(ClockInterface::UTC, $clockWithUTC->now()->getTimezone()->getName());
+
+        self::assertNotSame($clock, $clockWithUTC);
+        self::assertSame($clockWithUTC, $clockWithUTC->withUTC());
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function testWithSystemTimezone(): void
+    {
+        $clock = new FrozenClock(new DateTimeImmutable('now', new DateTimeZone('Europe/Vatican')));
+
+        self::assertNotEquals(date_default_timezone_get(), $clock->now()->getTimezone()->getName());
+
+        $clockWithSysTz = $clock->withSystemTimezone();
+        self::assertEquals(date_default_timezone_get(), $clockWithSysTz->now()->getTimezone()->getName());
+
+        self::assertNotSame($clock, $clockWithSysTz);
+        self::assertSame($clockWithSysTz, $clockWithSysTz->withSystemTimezone());
+    }
+
+    public function testWithException(): void
+    {
+        $this->expectException(ClockExceptionInterface::class);
+        $this->expectExceptionMessage('Failed to parse time string');
+
+        $clock = new FrozenClock;
+        $clock->with('unknown datetime')->now();
+    }
+
+    public function testConstructException(): void
+    {
+        $this->expectException(ClockExceptionInterface::class);
+        $this->expectExceptionMessage('Failed to parse time string');
+
+        $clock = new FrozenClock('unknown datetime');
+        $clock->with('unknown datetime')->now();
     }
 }

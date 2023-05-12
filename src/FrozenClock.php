@@ -3,33 +3,81 @@
 namespace Clock;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use Exception;
-use Psr\Clock\ClockInterface;
 
 class FrozenClock implements ClockInterface
 {
-    /**
-     * @throws Exception
-     */
-    public function __construct(
-        private DateTimeImmutable $now = new DateTimeImmutable('now', new DateTimeZone('UTC'))
-    ) {}
+    private DateTimeImmutable $dateTime;
 
-    public function set(DateTimeImmutable $now): void
+    /**
+     * @throws ClockExceptionInterface
+     */
+    public function __construct(DateTimeInterface|string|int|null $dateTime = null)
     {
-        $this->now = $now;
+        try {
+            $this->dateTime = $this->createDateTimeImmutable(
+                dateTime: $dateTime,
+                defaultDateTimezone: new DateTimeZone(ClockInterface::UTC)
+            );
+        } catch (Exception $exception) {
+            throw new ClockException($exception);
+        }
     }
 
     public function now(): DateTimeImmutable
     {
-        return $this->now;
+        return $this->dateTime;
     }
 
-    /**
-     * @throws Exception
-     */
-    public static function create(DateTimeImmutable $now): ClockInterface
+    public function with(DateTimeInterface|string|int $dateTime): ClockInterface
+    {
+        try {
+            $dateTime = $this->createDateTimeImmutable(
+                dateTime: $dateTime,
+                defaultDateTimezone: $this->dateTime->getTimezone()
+            );
+        } catch (Exception $exception) {
+            throw new ClockException($exception);
+        }
+
+        if ($this->dateTime->getTimestamp() === $dateTime->getTimestamp() &&
+            $this->dateTime->getTimezone()->getName() === $dateTime->getTimezone()->getName()) {
+            return $this;
+        }
+
+        $new = clone $this;
+        $new->dateTime = $dateTime;
+        return $new;
+    }
+
+    public function withDateTimeZone(DateTimeZone|string $timeZone): ClockInterface
+    {
+        if ($timeZone instanceof DateTimeZone === false) {
+            $timeZone = new DateTimeZone($timeZone);
+        }
+
+        if ($timeZone->getName() === $this->dateTime->getTimezone()->getName()) {
+            return $this;
+        }
+
+        $new = clone $this;
+        $new->dateTime = $this->dateTime->setTimezone($timeZone);
+        return $new;
+    }
+
+    public function withUTC(): ClockInterface
+    {
+        return $this->withDateTimeZone(ClockInterface::UTC);
+    }
+
+    public function withSystemTimezone(): ClockInterface
+    {
+        return $this->withDateTimeZone(date_default_timezone_get());
+    }
+
+    public static function create(DateTimeInterface|int|string|null $now = null): ClockInterface
     {
         return new self($now);
     }
@@ -37,16 +85,28 @@ class FrozenClock implements ClockInterface
     /**
      * @throws Exception
      */
-    public static function fromUTC(): ClockInterface
+    private function createDateTimeImmutable(
+        DateTimeInterface|int|string|null $dateTime,
+        false|DateTimeZone                $defaultDateTimezone
+    ): DateTimeImmutable
     {
-        return new self(Clock::fromUTC()->now());
-    }
+        if ($dateTime instanceof DateTimeImmutable) {
+            return $dateTime;
+        }
 
-    /**
-     * @throws Exception
-     */
-    public static function fromSystemTimezone(): ClockInterface
-    {
-        return new self(Clock::fromSystemTimezone()->now());
+        if (is_null($dateTime)) {
+            return new DateTimeImmutable(ClockInterface::NOW, new DateTimeZone(ClockInterface::UTC));
+        }
+
+        if (is_string($dateTime)) {
+            return new DateTimeImmutable($dateTime, $defaultDateTimezone ?: null);
+        }
+
+        $timeStamp = $dateTime instanceof DateTimeInterface ? $dateTime->getTimestamp() : $dateTime;
+        $timeZone = $dateTime instanceof DateTimeInterface ? $dateTime->getTimezone() : $defaultDateTimezone;
+
+        $dateTimeImmutable = new DateTimeImmutable(ClockInterface::NOW, $timeZone ?: null);
+
+        return $dateTimeImmutable->setTimestamp($timeStamp);
     }
 }
