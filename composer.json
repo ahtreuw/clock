@@ -1,0 +1,33 @@
+{
+  "name": "vulpes/clock",
+  "type": "library",
+  "description": "PHP FIG PSR-20 Clock implementation.",
+  "keywords": ["psr", "psr-20", "clock", "system-clock"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "András Würth",
+      "email": "wuertha@live.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.1",
+    "psr/clock": "^1.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Clock\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Clock\\": "test/"
+    }
+  },
+  "provide": {
+    "psr/clock-implementation": "1.0"
+  }
+}
